@@ -1,0 +1,55 @@
+name: 'preply_analytics'
+version: '1.0.0'
+
+# This setting configures which "profile" dbt uses for this project.
+profile: 'preply_analytics'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:         # directories to be removed by `dbt clean`
+  - "target"
+  - "dbt_packages"
+
+seeds:
+  preply_analytics:
+    raw_students:
+      +column_types:
+        student_id: bigint
+        join_ts: timestamp
+        country_code: string
+        acquisition_channel: string
+        persona: string
+        first_subject: string
+    raw_payments:
+      +column_types:
+        payment_id: bigint
+        student_id: bigint
+        payment_ts: timestamp
+        hours: bigint
+        price_per_hour_usd: decimal(10,2)
+    raw_lessons:
+      +column_types:
+        lesson_id: bigint
+        student_id: bigint
+        booking_ts: timestamp
+        hours_booked: decimal(10,2)
+
+# Configuring models
+models:
+  preply_analytics:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: view
+    marts:
+      +materialized: table
+
+#To be replaced with current date in production
+vars:
+  as_of_date: '2026-04-17'
+  cycle_length_days: 28

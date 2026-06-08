@@ -1,0 +1,149 @@
+version: 2
+
+models:
+  - name: dim_students
+    description: Student dimension table with cohorts and lifecycle stage
+    columns:
+      - name: student_id
+        tests:
+          - unique
+          - not_null
+      - name: join_date
+        tests:
+          - not_null
+      - name: lifecycle_stage
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['never_paid', 'single_cycle', 'early_lifecycle', 'established']
+      - name: join_cohort
+        tests:
+          - not_null
+
+  - name: fct_payments
+    description: One row per payment, current state
+    columns:
+      - name: payment_id
+        tests:
+          - unique
+          - not_null
+      - name: student_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_students')
+              field: student_id
+      - name: cycle_start
+        tests:
+          - not_null
+      - name: cycle_end
+        tests:
+          - not_null
+      - name: cycle_status
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['open', 'closed']
+      - name: price_per_hour_usd
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+      - name: hours_booked_so_far
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: breakage_usd
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: commission_usd
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: total_revenue_usd
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: is_estimate
+        tests:
+          - not_null
+      - name: estimation_method
+        tests:
+          - not_null
+          - accepted_values:
+              values: [
+                'actual',
+                'burn_rate_projection',
+                'historical_rate_fallback',
+                'fully_booked_zero'
+              ]
+      - name: student_type
+        tests:
+          - accepted_values:
+              values: ['new', 'returning']
+
+  - name: fct_breakage_daily
+    description: One row per payment per snapshot_date
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - payment_id
+            - snapshot_date
+    columns:
+      - name: payment_id
+        tests:
+          - not_null
+      - name: snapshot_date
+        tests:
+          - not_null
+      - name: cycle_status
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['open', 'closed']
+      - name: hours_purchased
+        tests:
+          - not_null
+      - name: hours_booked_so_far
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: breakage_usd
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: commission_usd
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: is_estimate
+        tests:
+          - not_null
+      - name: estimation_method
+        tests:
+          - not_null
+          - accepted_values:
+              values: [
+                'actual',
+                'burn_rate_projection',
+                'historical_rate_fallback',
+                'fully_booked_zero'
+              ]
+      - name: days_elapsed
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: days_remaining
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"

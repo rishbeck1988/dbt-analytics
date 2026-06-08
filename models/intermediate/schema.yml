@@ -1,0 +1,26 @@
+version: 2
+
+models:
+  - name: int_payment_cycles
+    columns:
+      - name: payment_id
+        tests:
+          - unique
+          - not_null
+      - name: cycle_status
+        tests:
+          - accepted_values:
+              values: ['open', 'closed']
+      - name: cycle_end
+        tests:
+          - not_null
+      - name: days_elapsed
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: days_remaining
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"

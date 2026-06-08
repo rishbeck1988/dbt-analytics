@@ -1,0 +1,41 @@
+version: 2
+
+models:
+  - name: stg_lessons
+    columns:
+      - name: hours_booked
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+
+      - name: lesson_id
+        tests:
+          - unique
+          - not_null
+
+      - name: student_id
+        tests:
+          - not_null
+
+      - name: booking_date
+        tests:
+          - not_null
+
+  - name: stg_payments
+    columns:
+      - name: price_per_hour_usd
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+
+      - name: hours_purchased
+        tests:
+          - not_null
+
+  - name: stg_students
+    columns:
+      - name: join_ts
+        tests:
+          - not_null
