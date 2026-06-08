@@ -93,15 +93,15 @@ Breakage is only known when a cycle closes. PayOps needs a **daily estimate** fo
 ---
 
 ## Data model
-
 ### DAG
 ```
-raw_students ──► stg_students ──────────────────────────────────────────────────┐
-raw_payments ──► stg_payments ──► int_payment_cycles ──────────────────────────►├──► fct_payments
-raw_lessons  ──► stg_lessons  ──────────────────────────────────────────────────┘    fct_breakage_daily
-                                                                                     dim_students
+raw_students ──► stg_students ──► int_payment_cycles ──────────────────────────► fct_payments
+raw_payments ──► stg_payments ──► int_payment_cycles                             fct_breakage_daily
+raw_lessons  ──► stg_lessons  ──────────────────────────────────────────────────► fct_breakage_daily
+raw_students ──► stg_students ──► dim_students ──────────────────────────────────► fct_payments
 ```
 
+### DAG-Mermaid
 ```mermaid
 flowchart TD
   subgraph SEEDS["seeds"]
@@ -129,13 +129,17 @@ flowchart TD
   RS --> SS
   RP --> SP
   RL --> SL
+
   SS --> IPC
   SP --> IPC
+
+  SS --> DS
+
   IPC --> FBD
   SL --> FBD
+
   IPC --> FP
   SL --> FP
-  SS --> DS
   DS --> FP
 ```
 
