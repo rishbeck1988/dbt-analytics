@@ -126,7 +126,12 @@ daily_calc as (
                 cl.hours_booked_so_far
                 / datediff(ds.snapshot_date, ds.cycle_start), 4
             )
-        end                                     as daily_burn_rate
+        end                                     as daily_burn_rate,
+        case
+            when cl.hours_booked_so_far > ds.hours_purchased
+            then true else false
+            end
+        as is_overbooked
 
     from date_spine ds
     left join cumulative_lessons cl
@@ -245,7 +250,8 @@ select
         'actual_breakage_hours',
         'estimated_breakage_hours'
     ) }}                                    as total_revenue_usd,
-
+    is_overbooked,
+    total_plan_value_usd,
     current_timestamp()                         as updated_at
 
 from breakage_calc

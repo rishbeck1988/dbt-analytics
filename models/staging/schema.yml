@@ -1,41 +1,85 @@
 version: 2
 
 models:
-  - name: stg_lessons
+  - name: stg_students
+    description: "Cleaned and filtered student records from raw_students. One row per student. Strings normalised to lowercase."
     columns:
-      - name: hours_booked
-        tests:
-          - not_null
-          - dbt_utils.expression_is_true:
-              expression: "> 0"
-
-      - name: lesson_id
+      - name: student_id
+        description: "Primary key. Unique identifier for each student."
         tests:
           - unique
           - not_null
-
-      - name: student_id
+      - name: join_ts
+        description: "Timestamp when student registered on the platform."
         tests:
           - not_null
-
-      - name: booking_date
-        tests:
-          - not_null
+      - name: join_date
+        description: "Date portion of join_ts. Used for cohort calculations."
+      - name: country_code
+        description: "Two-letter country code of the student. Lowercased and trimmed."
+      - name: acquisition_channel
+        description: "How the student was acquired. One of: crm, paid, direct & brand, wom, other. Lowercased."
+      - name: persona
+        description: "Student learning persona. One of: working_professional, relocator, exam_prepper, conversationalist. Lowercased."
+      - name: first_subject
+        description: "First subject the student studied. e.g. english, spanish, french. Lowercased."
 
   - name: stg_payments
+    description: "Cleaned and filtered payment records from raw_payments. One row per subscription payment. Rows with invalid plan sizes or negative prices are excluded."
     columns:
+      - name: payment_id
+        description: "Primary key. Unique identifier for each payment."
+        tests:
+          - unique
+          - not_null
+      - name: student_id
+        description: "Foreign key to stg_students. Student who made the payment."
+        tests:
+          - not_null
+      - name: payment_ts
+        description: "Timestamp when payment was made. Used as cycle anchor."
+        tests:
+          - not_null
+      - name: payment_date
+        description: "Date portion of payment_ts. Start of the 28-day subscription cycle."
+        tests:
+          - not_null
+      - name: hours_purchased
+        description: "Number of tutoring hours purchased. Between 4-20 hours"
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+                  expression: "between 4 and 20"
       - name: price_per_hour_usd
+        description: "Price per tutoring hour in USD."
         tests:
           - not_null
           - dbt_utils.expression_is_true:
               expression: "> 0"
+      - name: total_plan_value_usd
+        description: "Total value of the subscription plan. hours_purchased x price_per_hour_usd."
 
-      - name: hours_purchased
-        tests:
-          - not_null
-
-  - name: stg_students
+  - name: stg_lessons
+    description: "Cleaned and filtered lesson booking records from raw_lessons. One row per lesson booked. Rows with zero or negative hours_booked are excluded."
     columns:
-      - name: join_ts
+      - name: lesson_id
+        description: "Primary key. Unique identifier for each lesson booking."
+        tests:
+          - unique
+          - not_null
+      - name: student_id
+        description: "Foreign key to stg_students. Student who booked the lesson."
         tests:
           - not_null
+      - name: booking_ts
+        description: "Timestamp when the lesson was booked."
+      - name: booking_date
+        description: "Date portion of booking_ts. Used for cycle boundary joins."
+        tests:
+          - not_null
+      - name: hours_booked
+        description: "Duration of lesson in hours. Valid values: 0.5, 1.0, 1.5, 2.0."
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "> 0"

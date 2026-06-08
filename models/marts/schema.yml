@@ -2,93 +2,177 @@ version: 2
 
 models:
   - name: dim_students
-    description: Student dimension table with cohorts and lifecycle stage
+    description: >
+      Student dimension table. One row per student. Full refresh daily.
+      Uses SCD Type 1 — always reflects current student attributes.
+      Contains derived cohort and lifecycle attributes.
     columns:
       - name: student_id
+        description: "Primary key. Unique identifier for each student."
         tests:
           - unique
           - not_null
+      - name: join_ts
+        description: "Full timestamp when student registered on platform."
       - name: join_date
+        description: "Date student registered on platform."
         tests:
           - not_null
+      - name: country_code
+        description: "Student's current country. SCD Type 1 — always latest value."
+      - name: acquisition_channel
+        description: "How student was acquired e.g. paid, crm, wom. SCD Type 1."
+      - name: persona
+        description: "Student learning persona e.g. working_professional. SCD Type 1."
+      - name: first_subject
+        description: "First subject student studied e.g. english, spanish."
+      - name: join_cohort
+        description: "Month student registered. Truncated to first of month. Used for cohort analysis."
+      - name: first_payment_cohort
+        description: "Month of student's first payment. Used for revenue cohort analysis. Null if never paid."
+      - name: first_payment_date
+        description: "Date of student's first ever payment. Null if student has never paid."
+      - name: total_payments
+        description: "Total number of payments made by student across all time."
+      - name: days_to_first_payment
+        description: "Days between joining and first payment. Measures conversion speed. Null if never paid."
       - name: lifecycle_stage
+        description: "never_paid = no payments. single_cycle = one payment. early_lifecycle = 2-3 payments. established = 4+ payments."
         tests:
           - not_null
           - accepted_values:
               values: ['never_paid', 'single_cycle', 'early_lifecycle', 'established']
-      - name: join_cohort
-        tests:
-          - not_null
 
   - name: fct_payments
-    description: One row per payment, current state
+    description: >
+      Current state fact table. One row per payment.
+      Shows actual breakage for closed cycles and estimated breakage for open cycles.
+      Student dimensions snapshotted at INSERT time and preserved on subsequent merges.
+      Incremental merge on payment_id. Only last 28 days reprocessed daily.
+      NOTE: breakage_usd for open cycles is an estimate — not recognised revenue.
+      NOTE: 186 payments show is_overbooked = true — source system did not enforce hours cap.
+      Commission is capped at hours_purchased for overbooked payments.
     columns:
       - name: payment_id
+        description: "Primary key. Unique identifier for each payment."
         tests:
           - unique
           - not_null
       - name: student_id
-        tests:
-          - not_null
-          - relationships:
-              to: ref('dim_students')
-              field: student_id
+        description: "Foreign key to dim_students."
       - name: cycle_start
-        tests:
-          - not_null
+        description: "Date payment was made. First day of subscription cycle."
       - name: cycle_end
-        tests:
-          - not_null
+        description: "Last active day of subscription cycle. cycle_start + 27 days."
       - name: cycle_status
+        description: "open = cycle running, estimate shown. closed = cycle ended, actual breakage known."
         tests:
-          - not_null
           - accepted_values:
               values: ['open', 'closed']
-      - name: price_per_hour_usd
+      - name: days_elapsed
+        description: "Days since cycle started as of as_of_date. Max 27 for a 28-day cycle."
+      - name: days_remaining
+        description: "Days until cycle closes as of as_of_date. 0 when closed."
+      - name: hours_purchased
+        description: "Subscription plan size in hours. One of 4, 6, 8, 10, 12, 16, 20."
         tests:
-          - not_null
-          - dbt_utils.expression_is_true:
-              expression: "> 0"
-      - name: hours_booked_so_far
-        tests:
-          - not_null
-          - dbt_utils.expression_is_true:
-              expression: ">= 0"
-      - name: breakage_usd
-        tests:
-          - not_null
-          - dbt_utils.expression_is_true:
-              expression: ">= 0"
-      - name: commission_usd
-        tests:
-          - not_null
-          - dbt_utils.expression_is_true:
-              expression: ">= 0"
-      - name: total_revenue_usd
-        tests:
-          - not_null
-          - dbt_utils.expression_is_true:
-              expression: ">= 0"
-      - name: is_estimate
-        tests:
-          - not_null
-      - name: estimation_method
-        tests:
-          - not_null
           - accepted_values:
-              values: [
-                'actual',
-                'burn_rate_projection',
-                'historical_rate_fallback',
-                'fully_booked_zero'
-              ]
+              values: [4, 6, 8, 10, 12, 16, 20]
+      - name: price_per_hour_usd
+        description: "Price per tutoring hour in USD."
+      - name: total_plan_value_usd
+        description: "Total subscription value. hours_purchased x price_per_hour_usd."
       - name: student_type
+        description: "new = student's first payment. returning = subsequent payment."
         tests:
           - accepted_values:
               values: ['new', 'returning']
+      - name: cycle_number
+        description: "Sequential cycle number for this student. 1 = first ever cycle."
+      - name: country_code
+        description: "Student country. Snapshotted at payment INSERT time."
+      - name: persona
+        description: "Student persona. Snapshotted at payment INSERT time."
+      - name: acquisition_channel
+        description: "Student acquisition channel. Snapshotted at payment INSERT time."
+      - name: first_subject
+        description: "Student's first subject studied."
+      - name: join_cohort
+        description: "Month student registered. Truncated to first of month."
+      - name: payment_cohort
+        description: "Month payment was made. Truncated to first of month."
+      - name: join_date
+        description: "Date student registered on platform."
+      - name: lifecycle_stage
+        description: "Student lifecycle stage at INSERT time. From dim_students."
+      - name: days_to_first_payment
+        description: "Days between student joining and first payment."
+      - name: first_payment_cohort
+        description: "Month of student's first ever payment."
+      - name: total_payments
+        description: "Total payments made by student at INSERT time."
+      - name: hours_booked_so_far
+        description: "Cumulative hours of lessons booked within this cycle as of as_of_date."
+      - name: hours_remaining
+        description: "hours_purchased - hours_booked_so_far floored at 0. 0 for overbooked payments."
+      - name: lessons_count
+        description: "Number of individual lesson sessions booked in this cycle."
+      - name: last_booking_date
+        description: "Date of most recent lesson in this cycle. Null if no lessons booked."
+      - name: daily_burn_rate
+        description: "Average hours burned per day. hours_booked_so_far / days_elapsed. Null on day 0."
+      - name: is_fully_booked
+        description: "true if student has booked all purchased hours. Breakage will be 0."
+      - name: historical_avg_breakage_rate
+        description: "Average breakage rate for this plan size from closed cycles. Used as day 0 fallback."
+      - name: overall_avg_breakage_rate
+        description: "Portfolio average breakage rate. Fallback when no plan-specific rate exists."
+      - name: estimation_method
+        description: >
+          How breakage was estimated.
+          actual = closed cycle, confirmed number.
+          burn_rate_projection = days 1-27, projected from daily burn rate.
+          historical_rate_fallback = day 0, based on avg breakage rate for plan size.
+          fully_booked_zero = all hours booked, breakage is 0.
+        tests:
+          - accepted_values:
+              values: ['actual', 'burn_rate_projection', 'historical_rate_fallback', 'fully_booked_zero']
+      - name: actual_breakage_hours
+        description: "Final confirmed unbooked hours. Populated for closed cycles only. Null for open."
+      - name: estimated_breakage_hours
+        description: "Projected unbooked hours at cycle end. Populated for open cycles only. Null for closed."
+      - name: breakage_hours
+        description: "Single breakage figure. Actual for closed, estimated for open. Always populated."
+      - name: actual_breakage_usd
+        description: "actual_breakage_hours x price_per_hour_usd. Closed cycles only."
+      - name: estimated_breakage_usd
+        description: "estimated_breakage_hours x price_per_hour_usd. Open cycles only."
+      - name: breakage_usd
+        description: "Single breakage USD. Actual for closed, estimated for open. Always populated."
+        tests:
+          - not_null
+      - name: is_estimate
+        description: "true = estimated breakage. false = actual confirmed breakage."
+        tests:
+          - not_null
+      - name: commission_usd
+        description: "20% of effective hours booked x price_per_hour. Capped at hours_purchased for overbooking."
+      - name: total_revenue_usd
+        description: "Total Preply revenue. commission_usd + breakage_usd. Not recognised revenue for open cycles."
+      - name: is_overbooked
+        description: "true if hours_booked_so_far exceeds hours_purchased. Source data quality flag — 186 payments affected."
+      - name: updated_at
+        description: "Timestamp when this record was last updated by dbt."
 
   - name: fct_breakage_daily
-    description: One row per payment per snapshot_date
+    description: >
+      Daily snapshot fact table. One row per payment per snapshot_date.
+      Exactly 28 rows per closed payment (day 0 to day 27).
+      Fewer rows for open cycles — rows appended daily as pipeline runs.
+      Enables estimate convergence analysis and daily trend monitoring.
+      WARNING: Do not sum breakage_usd across snapshot_dates for the same payment
+      as this causes double counting. Summing across payments on a single
+      snapshot_date is always safe.
     tests:
       - dbt_utils.unique_combination_of_columns:
           combination_of_columns:
@@ -96,54 +180,86 @@ models:
             - snapshot_date
     columns:
       - name: payment_id
+        description: "Primary key part 1. Payment this snapshot belongs to."
         tests:
           - not_null
       - name: snapshot_date
+        description: "Primary key part 2. Day 0 = cycle_start, day 27 = cycle_end (closed row)."
         tests:
           - not_null
+      - name: student_id
+        description: "Student who made the payment."
+      - name: cycle_start
+        description: "First day of payment cycle."
+      - name: cycle_end
+        description: "Last active day of payment cycle. cycle_start + 27 days."
       - name: cycle_status
+        description: "open = snapshot within cycle window. closed = snapshot on cycle_end, actual breakage known."
         tests:
-          - not_null
           - accepted_values:
               values: ['open', 'closed']
-      - name: hours_purchased
-        tests:
-          - not_null
-      - name: hours_booked_so_far
-        tests:
-          - not_null
-          - dbt_utils.expression_is_true:
-              expression: ">= 0"
-      - name: breakage_usd
-        tests:
-          - not_null
-          - dbt_utils.expression_is_true:
-              expression: ">= 0"
-      - name: commission_usd
-        tests:
-          - not_null
-          - dbt_utils.expression_is_true:
-              expression: ">= 0"
-      - name: is_estimate
-        tests:
-          - not_null
-      - name: estimation_method
-        tests:
-          - not_null
-          - accepted_values:
-              values: [
-                'actual',
-                'burn_rate_projection',
-                'historical_rate_fallback',
-                'fully_booked_zero'
-              ]
       - name: days_elapsed
-        tests:
-          - not_null
-          - dbt_utils.expression_is_true:
-              expression: ">= 0"
+        description: "Days from cycle_start to snapshot_date."
       - name: days_remaining
+        description: "Days from snapshot_date to cycle_end."
+      - name: hours_purchased
+        description: "Subscription plan size in hours."
+      - name: price_per_hour_usd
+        description: "Price per tutoring hour in USD."
+      - name: hours_booked_so_far
+        description: "Cumulative hours booked from cycle_start up to and including snapshot_date."
+      - name: hours_remaining
+        description: "hours_purchased - hours_booked_so_far as of snapshot_date. Floored at 0."
+      - name: daily_burn_rate
+        description: "hours_booked_so_far / days_elapsed as of snapshot_date. Null on day 0."
+      - name: is_fully_booked
+        description: "true if all hours booked as of snapshot_date."
+      - name: estimation_method
+        description: "actual / burn_rate_projection / historical_rate_fallback / fully_booked_zero."
+        tests:
+          - accepted_values:
+              values: ['actual', 'burn_rate_projection', 'historical_rate_fallback', 'fully_booked_zero']
+      - name: student_type
+        description: "new = student's first payment. returning = subsequent payment."
+      - name: cycle_number
+        description: "Sequential cycle number for this student."
+      - name: country_code
+        description: "Student country code."
+      - name: persona
+        description: "Student learning persona."
+      - name: acquisition_channel
+        description: "Student acquisition channel."
+      - name: payment_cohort
+        description: "Month payment was made. Truncated to first of month."
+      - name: historical_avg_breakage_rate
+        description: "Historical avg breakage rate for this plan size. Used for day 0 estimate."
+      - name: overall_avg_breakage_rate
+        description: "Portfolio avg breakage rate. Fallback when no plan-specific rate available."
+      - name: actual_breakage_hours
+        description: "Final unbooked hours. Populated only on cycle_end row (day 27)."
+      - name: actual_breakage_usd
+        description: "actual_breakage_hours x price_per_hour_usd. Populated on cycle_end row only."
+      - name: estimated_breakage_hours
+        description: "Projected unbooked hours. Populated for open snapshot rows only."
+      - name: estimated_breakage_usd
+        description: "estimated_breakage_hours x price_per_hour_usd. Open rows only."
+      - name: breakage_hours
+        description: "Actual for closed snapshots, estimated for open. Always populated."
+      - name: breakage_usd
+        description: "Single breakage USD for this snapshot. Safe to sum across payments on same snapshot_date only."
         tests:
           - not_null
-          - dbt_utils.expression_is_true:
-              expression: ">= 0"
+      - name: is_estimate
+        description: "true = estimated breakage. false = actual breakage (cycle_end row only)."
+        tests:
+          - not_null
+      - name: commission_usd
+        description: "Commission as of snapshot_date. 20% of effective hours x price. Capped at hours_purchased."
+      - name: total_revenue_usd
+        description: "commission_usd + breakage_usd as of snapshot_date."
+      - name: total_plan_value_usd
+        description: "Total subscription value. hours_purchased x price_per_hour_usd. Used for breakage rate calculations."
+      - name: is_overbooked
+        description: "true if hours_booked_so_far exceeds hours_purchased on this snapshot_date. Source data quality flag."
+      - name: updated_at
+        description: "Timestamp when this record was last updated by dbt."

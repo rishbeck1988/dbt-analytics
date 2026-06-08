@@ -223,6 +223,7 @@ select
         'actual_breakage_hours',
         'estimated_breakage_hours'
     ) }}                                    as total_revenue_usd,
+    is_overbooked,
 
     current_timestamp()                         as updated_at
 

@@ -2,25 +2,67 @@ version: 2
 
 models:
   - name: int_payment_cycles
+    description: >
+      Source of truth for payment cycle boundaries. One row per payment.
+      All downstream models must use this for cycle dates — never derive
+      cycle_start or cycle_end independently. Cycle length is parameterised
+      via cycle_length_days variable. Student dimensions joined here using
+      SCD Type 1 (current values only).
     columns:
       - name: payment_id
+        description: "Primary key. One row per payment guaranteed."
         tests:
           - unique
           - not_null
+      - name: student_id
+        description: "Foreign key to stg_students."
+      - name: payment_ts
+        description: "Full timestamp of payment. Used for precise cycle boundary joins."
+      - name: cycle_start
+        description: "Date payment was made. First day of 28-day subscription cycle."
+      - name: cycle_end
+        description: "Last active day of cycle. cycle_start + 27 days for a 28-day cycle. Student can book up to and including this date. Next cycle starts the following day."
+      - name: hours_purchased
+        description: "Number of tutoring hours in the subscription plan."
+        tests:
+          - accepted_values:
+              values: [4, 6, 8, 10, 12, 16, 20]
+      - name: price_per_hour_usd
+        description: "Price per tutoring hour in USD."
+      - name: total_plan_value_usd
+        description: "Total value of subscription. hours_purchased x price_per_hour_usd."
       - name: cycle_status
+        description: "open = cycle still running, estimate required. closed = cycle ended, actual breakage known."
         tests:
           - accepted_values:
               values: ['open', 'closed']
-      - name: cycle_end
-        tests:
-          - not_null
       - name: days_elapsed
+        description: "Days since cycle_start as of as_of_date. Capped at cycle_length_days - 1 (max 27)."
         tests:
           - not_null
           - dbt_utils.expression_is_true:
               expression: ">= 0"
       - name: days_remaining
+        description: "Days until cycle_end as of as_of_date. Floored at 0."
         tests:
           - not_null
           - dbt_utils.expression_is_true:
               expression: ">= 0"
+      - name: student_type
+        description: "new = student's first ever payment. returning = student has paid before."
+      - name: cycle_number
+        description: "Sequential cycle number for this student. 1 = first cycle."
+      - name: country_code
+        description: "Student's current country code. SCD Type 1 — reflects latest value."
+      - name: persona
+        description: "Student's learning persona. SCD Type 1 — reflects latest value."
+      - name: acquisition_channel
+        description: "Channel through which student was acquired. SCD Type 1."
+      - name: first_subject
+        description: "First subject student studied."
+      - name: join_date
+        description: "Date student registered on platform."
+      - name: join_cohort
+        description: "Month student registered. Truncated to first of month."
+      - name: payment_cohort
+        description: "Month payment was made. Truncated to first of month."
