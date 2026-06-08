@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PayOps Breakage Monitor — Preply</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f8f6; color: #1a1a18; padding: 24px; }
+.db { max-width: 1100px; margin: 0 auto; }
+.section-label { font-size: 11px; color: #888780; text-transform: uppercase; letter-spacing: 0.08em; margin: 1.5rem 0 0.75rem; }
+.metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 0.5rem; }
+.metric { background: #f1efe8; border-radius: 8px; padding: 0.85rem 1rem; }
+.metric-label { font-size: 12px; color: #5f5e5a; margin-bottom: 4px; }
+.metric-value { font-size: 22px; font-weight: 500; color: #1a1a18; }
+.metric-sub { font-size: 11px; color: #888780; margin-top: 2px; }
+.chart-card { background: #fff; border: 0.5px solid rgba(0,0,0,0.12); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
+.chart-title { font-size: 13px; font-weight: 500; color: #1a1a18; margin-bottom: 2px; }
+.chart-sub { font-size: 11px; color: #5f5e5a; margin-bottom: 1rem; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1rem; }
+.insight { background: #E6F1FB; border-radius: 8px; padding: 10px 14px; margin-top: 12px; font-size: 11px; color: #0C447C; line-height: 1.6; }
+.insight-warn { background: #FAEEDA; border-radius: 8px; padding: 10px 14px; margin-top: 12px; font-size: 11px; color: #633806; line-height: 1.6; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #5f5e5a; }
+.legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+@media (max-width: 600px) { .two-col { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="db">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
+    <div>
+      <div style="font-size:18px;font-weight:500;">PayOps breakage monitor</div>
+      <div style="font-size:12px;color:#888780;margin-top:2px">Preply · Subscription breakage estimation · fct_payments + fct_breakage_daily</div>
+    </div>
+    <div style="font-size:12px;color:#5f5e5a">as of 17 Apr 2026</div>
+  </div>
+
+  <p class="section-label">Today's headline</p>
+  <div class="metric-grid">
+    <div class="metric"><div class="metric-label">Total expected breakage</div><div class="metric-value">$356K</div><div class="metric-sub">actual + estimated</div></div>
+    <div class="metric"><div class="metric-label">Confirmed actual</div><div class="metric-value">$335K</div><div class="metric-sub">8,884 closed cycles</div></div>
+    <div class="metric"><div class="metric-label">Estimated outstanding</div><div class="metric-value">$21K</div><div class="metric-sub">811 open cycles</div></div>
+    <div class="metric"><div class="metric-label">Breakage rate</div><div class="metric-value">26.83%</div><div class="metric-sub">of total plan value</div></div>
+    <div class="metric"><div class="metric-label">Commission</div><div class="metric-value">$186K</div><div class="metric-sub">20% of booked hours</div></div>
+    <div class="metric"><div class="metric-label">Total revenue</div><div class="metric-value">$543K</div><div class="metric-sub">commission + breakage</div></div>
+  </div>
+
+  <p class="section-label">Daily breakage trends — last 90 days</p>
+  <div class="two-col">
+    <div class="chart-card">
+      <div class="chart-title">Daily realised breakage</div>
+      <div class="chart-sub">Confirmed on cycle close date. Line = 7-day rolling avg.</div>
+      <div class="legend">
+        <span class="legend-item"><span class="legend-dot" style="background:#0F6E56"></span>Daily realised</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#534AB7;height:2px;border-radius:0;width:20px"></span>7-day avg</span>
+      </div>
+      <div style="position:relative;height:200px;">
+        <canvas id="c_realised" role="img" aria-label="Daily realised breakage bar chart">Daily realised breakage Jan-Apr 2026 $685-$2,601/day.</canvas>
+      </div>
+      <div class="insight">Consistent at $1,000–$1,600/day. Slight April decline reflects fewer cycles closing as dataset approaches as_of_date — not a business trend.</div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Estimated breakage outstanding</div>
+      <div class="chart-sub">Total estimated across all open cycles per day. Dashed = open cycle count.</div>
+      <div class="legend">
+        <span class="legend-item"><span class="legend-dot" style="background:#185FA5;height:2px;border-radius:0;width:20px"></span>Estimated ($)</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#B5D4F4;height:2px;border-radius:0;width:20px"></span>Open cycles (right)</span>
+      </div>
+      <div style="position:relative;height:200px;">
+        <canvas id="c_estimated" role="img" aria-label="Estimated breakage outstanding line chart">Declining from $52K Jan to $21K Apr. Open cycles 1,154 to 811.</canvas>
+      </div>
+      <div class="insight-warn">Decline from $52K→$21K reflects dataset boundary — fewer new payments entering pipeline near as_of_date. In production with live data this would show steady state ~$50K.</div>
+    </div>
+  </div>
+
+  <p class="section-label">Estimate accuracy — from fct_breakage_daily</p>
+  <div class="chart-card">
+    <div class="chart-title">How breakage estimate evolves over the 28-day cycle</div>
+    <div class="chart-sub">Avg estimated breakage at each day elapsed across all payments. Day 27 = actual confirmed breakage.</div>
+    <div class="legend">
+      <span class="legend-item"><span class="legend-dot" style="background:#D85A30"></span>Avg estimated (open snapshot)</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#0F6E56"></span>Actual (day 27, confirmed)</span>
+    </div>
+    <div style="position:relative;height:220px;">
+      <canvas id="c_conv" role="img" aria-label="Estimate convergence line chart">Day 0 $37.92, spike day 1 $98.11, converging to actual $37.74 on day 27.</canvas>
+    </div>
+    <div class="insight-warn">Day 1 spike to $98: students with 0 lessons by end of day 1 are projected as booking nothing all cycle. Resolves from day 2. Consider historical rate fallback for days 0–3 to smooth this.</div>
+    <div class="insight">From day 14 estimates are within 8% of actual ($40.56 vs $37.74). By day 21 accuracy is within 7.4% — the model is reliable from mid-cycle.</div>
+  </div>
+
+  <p class="section-label">Breakage by segment — closed cycles only</p>
+  <div class="chart-card">
+    <div class="chart-title">Avg hours booked vs breakage by plan size</div>
+    <div class="chart-sub">Stacked bars show how purchased hours split between booked (green) and unused/breakage (orange).</div>
+    <div class="legend">
+      <span class="legend-item"><span class="legend-dot" style="background:#1D9E75"></span>Avg hours booked</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#F0997B"></span>Avg breakage hours</span>
+    </div>
+    <div style="position:relative;height:200px;">
+      <canvas id="c_plan" role="img" aria-label="Stacked bar chart hours booked vs breakage by plan size">4h-20h plan sizes with booked vs breakage split.</canvas>
+    </div>
+    <div class="insight">Breakage rate is flat at ~27–28% across all plan sizes — students use ~72% of hours regardless of plan purchased. Exception: 20h plan at 23.5% — more committed students self-select into larger plans.</div>
+  </div>
+
+  <div class="two-col">
+    <div class="chart-card">
+      <div class="chart-title">New vs returning students</div>
+      <div class="chart-sub">Breakage rate — closed cycles only</div>
+      <div style="position:relative;height:180px;">
+        <canvas id="c_newret" role="img" aria-label="Bar chart new vs returning breakage rate">New 33.51%, returning 24.71%.</canvas>
+      </div>
+      <div class="insight">New students: 33.5% vs returning: 24.7% — a 36% gap. First-cycle onboarding is the biggest lever for reducing breakage.</div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Breakage drops with each renewal</div>
+      <div class="chart-sub">Rate by cycle number — closed cycles only</div>
+      <div style="position:relative;height:180px;">
+        <canvas id="c_cohort" role="img" aria-label="Line chart breakage by cycle number">1st 33.51%, 2nd 27.75%, 3rd 25.43%, 4th+ 21.86%.</canvas>
+      </div>
+      <div class="insight">1st→2nd cycle is the biggest drop (−5.8pp). Getting a student to renew once is the most impactful intervention.</div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-title">Breakage rate by student persona — closed cycles only</div>
+    <div class="chart-sub">Spread is narrow (2.7pp) — persona less predictive than cycle number or student type</div>
+    <div style="position:relative;height:150px;">
+      <canvas id="c_persona" role="img" aria-label="Bar chart breakage by persona">Conversationalist 29.22%, relocator 28.56%, exam prepper 27.33%, working professional 26.53%.</canvas>
+    </div>
+    <div class="insight">Working professionals are most reliable bookers — likely due to structured weekly schedules. Conversationalists are best candidates for lesson booking nudges.</div>
+  </div>
+
+  <div style="font-size:11px;color:#888780;line-height:1.6;margin-top:1rem;">
+    Sources: <code>fct_payments</code> (current state, one row per payment) · <code>fct_breakage_daily</code> (daily snapshots, one row per payment per day) ·
+    as_of_date: 2026-04-17 · cycle_length_days: 28 · 186 payments flagged is_overbooked=true ·
+    Estimated breakage is not recognised revenue — do not use for financial reporting ·
+    Declining estimated trend reflects dataset boundary, not a business decline
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const dates = ['01-17','01-18','01-19','01-20','01-21','01-22','01-23','01-24','01-25','01-26','01-27','01-28','01-29','01-30','01-31','02-01','02-02','02-03','02-04','02-05','02-06','02-07','02-08','02-09','02-10','02-11','02-12','02-13','02-14','02-15','02-16','02-17','02-18','02-19','02-20','02-21','02-22','02-23','02-24','02-25','02-26','02-27','02-28','03-01','03-02','03-03','03-04','03-05','03-06','03-07','03-08','03-09','03-10','03-11','03-12','03-13','03-14','03-15','03-16','03-17','03-18','03-19','03-20','03-21','03-22','03-23','03-24','03-25','03-26','03-27','03-28','03-29','03-30','03-31','04-01','04-02','04-03','04-04','04-05','04-06','04-07','04-08','04-09','04-10','04-11','04-12','04-13','04-14','04-15','04-16','04-17'];
+
+const realised = [1219,1388,1136.25,1158,1651.25,2153,2176,1501.25,1628.25,1673.25,2500.75,1512.75,2358.75,1190.25,1798.25,1447.5,1768.75,1796,1773,1554,1723.5,1516.5,1738.25,1717.75,1049.75,1466,1191.25,1113.75,1593.25,1513.5,1127.75,1470,1529.75,1599.75,2600.75,1538.5,1218.5,1901.5,2336.25,1292,2031.25,921.25,1518.5,1671.25,1335.5,2293,1722.5,1435,1509.25,1255.75,1475,1812.25,757.75,1992.75,852.5,1144.25,1373.75,1469.75,1212.5,1049.25,1095.25,1330,1978.5,1465.5,1303.75,1671.5,1616.25,1085.5,1477,1074.5,1380.5,1401.25,1077,1547.75,1300.75,1002.25,1122.5,920.75,1448,893.5,907.25,1465,997.5,983.25,904.5,1225,685,1032.5,988.5,1011.75,1582.25];
+
+const rolling7 = realised.map((_, i) => {
+  const slice = realised.slice(Math.max(0, i-6), i+1);
+  return Math.round(slice.reduce((a,b)=>a+b,0)/slice.length);
+});
+
+new Chart(document.getElementById('c_realised'), {
+  type: 'bar',
+  data: {
+    labels: dates,
+    datasets: [
+      { label: 'Daily realised', data: realised, backgroundColor: '#0F6E56', barPercentage: 0.9, categoryPercentage: 1.0 },
+      { label: '7-day avg', data: rolling7, type: 'line', borderColor: '#534AB7', borderWidth: 1.5, pointRadius: 0, tension: 0.4 }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: $${Math.round(ctx.parsed.y).toLocaleString()}` } } },
+    scales: {
+      x: { ticks: { font: { size: 9 }, autoSkip: true, maxTicksLimit: 10, maxRotation: 0 } },
+      y: { ticks: { callback: v => '$'+Math.round(v/1000)+'k', font: { size: 10 } } }
+    }
+  }
+});
+
+const estimatedVals = [52568.75,52024.01,52466.11,53044.85,52878.62,52991.80,52440.88,52803.63,55013.64,55252.41,56029.26,55581.08,54048.41,54199.64,53903.27,53116.03,54058.23,53260.50,52975.34,52093.43,52587.19,52238.64,52321.85,51832.88,51639.88,51061.09,50277.46,52718.00,51151.88,51178.86,50742.49,50897.21,50046.46,48525.69,46693.55,47665.20,47838.85,46508.00,46467.67,48894.16,49037.81,48661.70,48415.89,47857.92,47982.64,46728.22,46068.75,45550.48,44185.93,43570.83,42689.43,42216.67,43038.90,42166.57,41002.58,40621.10,40961.07,40326.85,40968.97,39484.85,38828.69,38044.42,36738.91,37258.45,38868.01,38193.27,38991.92,40715.83,39714.26,40344.83,39643.54,39262.09,40352.52,39615.28,39589.86,38668.62,38231.50,36799.86,37315.46,36942.86,36333.17,33928.45,31591.10,31794.64,31436.56,31307.63,30888.01,29647.95,27761.33,25914.01,20996.21];
+const openCycles = [1154,1168,1169,1169,1171,1172,1166,1175,1177,1174,1163,1176,1163,1179,1161,1169,1169,1171,1164,1165,1165,1156,1141,1139,1145,1138,1140,1139,1130,1138,1131,1131,1122,1117,1103,1106,1102,1089,1076,1087,1064,1073,1054,1055,1057,1053,1046,1039,1038,1037,1027,1027,1025,1014,1008,1009,997,1001,992,987,983,976,956,958,950,941,933,939,928,934,912,912,911,911,904,894,891,889,880,886,882,872,862,860,849,849,843,832,828,829,811];
+
+new Chart(document.getElementById('c_estimated'), {
+  type: 'line',
+  data: {
+    labels: dates,
+    datasets: [
+      { label: 'Estimated outstanding', data: estimatedVals, borderColor: '#185FA5', backgroundColor: 'rgba(24,95,165,0.08)', tension: 0.3, pointRadius: 0, yAxisID: 'y' },
+      { label: 'Open cycles', data: openCycles, borderColor: '#B5D4F4', borderDash: [4,3], tension: 0.3, pointRadius: 0, yAxisID: 'y2' }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.datasetIndex===0 ? `Estimated: $${Math.round(ctx.parsed.y).toLocaleString()}` : `Open cycles: ${ctx.parsed.y}` } } },
+    scales: {
+      x: { ticks: { font: { size: 9 }, autoSkip: true, maxTicksLimit: 10, maxRotation: 0 } },
+      y: { position: 'left', ticks: { callback: v => '$'+Math.round(v/1000)+'k', font: { size: 10 } } },
+      y2: { position: 'right', grid: { drawOnChartArea: false }, ticks: { font: { size: 10 } } }
+    }
+  }
+});
+
+const days = Array.from({length:28},(_,i)=>i);
+const estimates = [37.92,98.11,80.55,68.87,61.67,57.30,53.82,50.90,48.86,46.87,45.47,44.02,42.95,41.85,40.56,39.72,38.88,38.14,37.19,36.22,35.62,34.95,34.58,34.29,34.13,34.07,34.21,37.74];
+const ptColors = days.map(d => d===27?'#0F6E56':'#D85A30');
+const ptSizes = days.map(d => d===27?6:3);
+
+new Chart(document.getElementById('c_conv'), {
+  type: 'line',
+  data: {
+    labels: days,
+    datasets: [{ data: estimates, borderColor: '#D85A30', backgroundColor: 'rgba(216,90,48,0.06)', tension: 0.3, pointRadius: ptSizes, pointBackgroundColor: ptColors, pointBorderColor: ptColors }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => '$'+ctx.parsed.y.toFixed(2) } } },
+    scales: {
+      x: { title: { display: true, text: 'days elapsed in cycle', font: { size: 10 } }, ticks: { font: { size: 10 }, autoSkip: true, maxTicksLimit: 14 } },
+      y: { ticks: { callback: v => '$'+v, font: { size: 10 } } }
+    }
+  }
+});
+
+new Chart(document.getElementById('c_plan'), {
+  type: 'bar',
+  data: {
+    labels: ['4h','6h','8h','10h','12h','16h','20h'],
+    datasets: [
+      { label: 'Avg hours booked', data: [2.91,4.33,5.75,7.23,8.67,11.49,15.25], backgroundColor: '#1D9E75', borderRadius: 3, stack: 's' },
+      { label: 'Avg breakage hours', data: [1.09,1.67,2.25,2.77,3.33,4.51,4.75], backgroundColor: '#F0997B', borderRadius: 3, stack: 's' }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}h` } } },
+    scales: {
+      x: { stacked: true, ticks: { font: { size: 11 } } },
+      y: { stacked: true, ticks: { callback: v => v+'h', font: { size: 11 } } }
+    }
+  }
+});
+
+new Chart(document.getElementById('c_newret'), {
+  type: 'bar',
+  data: {
+    labels: ['New','Returning'],
+    datasets: [{ data: [33.51,24.71], backgroundColor: ['#D85A30','#1D9E75'], borderRadius: 4 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.parsed.y.toFixed(2)+'%' } } },
+    scales: { x: { ticks: { font: { size: 11 } } }, y: { min: 0, max: 40, ticks: { callback: v => v+'%', font: { size: 11 } } } }
+  }
+});
+
+new Chart(document.getElementById('c_cohort'), {
+  type: 'line',
+  data: {
+    labels: ['1st','2nd','3rd','4th+'],
+    datasets: [{ data: [33.51,27.75,25.43,21.86], borderColor: '#534AB7', backgroundColor: 'rgba(83,74,183,0.08)', tension: 0.3, pointRadius: 5, pointBackgroundColor: '#534AB7' }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.parsed.y.toFixed(2)+'%' } } },
+    scales: { x: { ticks: { font: { size: 11 } } }, y: { min: 18, max: 38, ticks: { callback: v => v+'%', font: { size: 11 } } } }
+  }
+});
+
+new Chart(document.getElementById('c_persona'), {
+  type: 'bar',
+  data: {
+    labels: ['conversationalist','relocator','exam prepper','working professional'],
+    datasets: [{ data: [29.22,28.56,27.33,26.53], backgroundColor: '#854F0B', borderRadius: 3 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.parsed.y.toFixed(2)+'%' } } },
+    scales: { x: { ticks: { font: { size: 10 }, maxRotation: 15 } }, y: { min: 24, max: 32, ticks: { callback: v => v+'%', font: { size: 11 } } } }
+  }
+});
+</script>
+</body>
+</html>
