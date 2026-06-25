@@ -1,9 +1,7 @@
-# Preply Analytics — Breakage Estimation
+# dbt Analytics — Breakage Revenue Pipeline
 
-A dbt project that estimates and tracks breakage revenue for Preply's PayOps team.
-
+A dbt project that estimates and tracks breakage revenue PayOps team.
 **Breakage** = hours purchased but unused at the end of a 28-day subscription cycle.
-
 The pipeline produces both **actual breakage** (closed cycles) and **estimated breakage** (open cycles), refreshed daily as new payments, lessons and students arrive.
 
 ---
@@ -17,8 +15,8 @@ The pipeline produces both **actual breakage** (closed cycles) and **estimated b
 
 ### Setup
 ```bash
-git clone https://github.com/rishbeck1988/preply-analytics.git
-cd preply-analytics
+git clone https://github.com/rishbeck1988/dbt-analytics.git
+cd dbt-analytics
 pip install dbt-databricks
 dbt deps                          # install dbt_utils package
 ```
